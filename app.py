@@ -1,7 +1,7 @@
 import streamlit as st
 import re
 import requests
-from bs4::BeautifulSoup import BeautifulSoup # type: ignore
+from bs4 import BeautifulSoup
 import google.generativeai as genai
 
 # إعدادات الصفحة
@@ -11,11 +11,15 @@ st.title("🎯 نظام استخراج الإيميلات والتخصيص ال�
 st.write("أدخل رابط موقع الشركة المستهدفة، وسيقوم النظام بفحص الصفحة، استخراج البريد الرسمي، وصياغة رسالة احترافية عبر Gemini.")
 
 # إعداد مفتاح Gemini بأمان من إعدادات Streamlit Secrets
+api_key = None
 try:
-    api_key = st.secrets["GEMINI_API_KEY"]
-    genai.configure(api_key=api_key)
-except Exception:
-    st.warning("⚠️ يرجى إعداد مفتاح Gemini API في إعدادات Secrets الخاصة بـ Streamlit.")
+    if "GEMINI_API_KEY" in st.secrets:
+        api_key = st.secrets["GEMINI_API_KEY"]
+        genai.configure(api_key=api_key)
+    else:
+        st.warning("⚠️ يرجى إعداد مفتاح Gemini API في إعدادات Secrets الخاصة بـ Streamlit.")
+except Exception as e:
+    st.warning("⚠️ تعذر تحميل مفتاح Gemini API من إعدادات Secrets.")
 
 # مدخلات المستخدم
 website_url = st.text_input("رابط موقع الشركة (مثال: https://example-company.de)", "")
@@ -39,11 +43,11 @@ if st.button("بدء الاستخراج والتوليد 🚀"):
                 else:
                     soup = BeautifulSoup(response.text, 'html.parser')
                     
-                    # البحث عن صفحة الاتصال أو من نحن
+                    # البحث عن صفحة الاتصال أو من نحن أو Imprint
                     contact_url = None
                     for a in soup.find_all('a', href=True):
                         text = a.get_text().lower()
-                        if 'contact' in text or 'imprint' in text or 'about' in text:
+                        if any(term in text for term in ['contact', 'imprint', 'about', 'impressum', 'kontakt']):
                             link = a['href']
                             if link.startswith('http'):
                                 contact_url = link
@@ -87,8 +91,7 @@ if st.button("بدء الاستخراج والتوليد 🚀"):
                             for em in clean_emails:
                                 st.code(em)
                         else:
-                            info_msg = "لم يتم العثور على بريد رسمي مباشر، يُرجى مراجعة الموقع يدوياً أو تجربة صفحة 'Imprint' (إلزامية في ألمانيا وأوروبا)."
-                            st.info(info_msg)
+                            st.info("لم يتم العثور على بريد رسمي مباشر، يُرجى مراجعة الموقع يدوياً أو تجربة صفحة 'Imprint' (إلزامية في ألمانيا وأوروبا).")
                             
                     with col2:
                         st.subheader("🤖 مسودة الرسالة المقترحة (Gemini AI):")
@@ -109,4 +112,5 @@ if st.button("بدء الاستخراج والتوليد 🚀"):
                             st.warning("أدخل مفتاح الـ API لتفعيل توليد الرسائل.")
                             
             except Exception as e:
-                st.error(fحدث خطأ أثناء فحص الموقع: {e}")
+                st.error(f"حدث خطأ أثناء فحص الموقع: {e}")
+                    
