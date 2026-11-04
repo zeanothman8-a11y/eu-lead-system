@@ -2,7 +2,7 @@ import streamlit as st
 import re
 import requests
 from bs4 import BeautifulSoup
-import google.generativeai as genai
+from google import genai
 
 # إعدادات الصفحة
 st.set_page_config(page_title="EU Lead Generator AI", page_icon="🎯", layout="wide")
@@ -10,16 +10,16 @@ st.set_page_config(page_title="EU Lead Generator AI", page_icon="🎯", layout="
 st.title("🎯 نظام استخراج الإيميلات والتخصيص الذكي (للسوق الأوروبي)")
 st.write("أدخل رابط موقع الشركة المستهدفة، وسيقوم النظام بفحص الصفحة، استخراج البريد الرسمي، وصياغة رسالة احترافية عبر Gemini.")
 
-# إعداد مفتاح Gemini بأمان من إعدادات Streamlit Secrets
-api_key = None
+# إعداد مفتاح Gemini باستخدام المكتبة الحديثة
+client = None
 try:
     if "GEMINI_API_KEY" in st.secrets:
         api_key = st.secrets["GEMINI_API_KEY"]
-        genai.configure(api_key=api_key)
+        client = genai.Client(api_key=api_key)
     else:
         st.warning("⚠️ يرجى إعداد مفتاح Gemini API في إعدادات Secrets الخاصة بـ Streamlit.")
 except Exception as e:
-    st.warning("⚠️ تعذر تحميل مفتاح Gemini API من إعدادات Secrets.")
+    st.warning("⚠️ تعذر تهيئة عميل Gemini.")
 
 # مدخلات المستخدم
 website_url = st.text_input("رابط موقع الشركة (مثال: https://example-company.de)", "")
@@ -95,7 +95,7 @@ if st.button("بدء الاستخراج والتوليد 🚀"):
                             
                     with col2:
                         st.subheader("🤖 مسودة الرسالة المقترحة (Gemini AI):")
-                        if api_key:
+                        if client:
                             prompt = f"""
                             أنت خبير تطوير أعمال موجه للشركات الصغيرة والمتوسطة في أوروبا.
                             صغ رسالة بريد إلكتروني أولية (Cold Email) باللغة الإنجليزية موجهة لشركة تعمل في هذا المجال: {company_description}
@@ -103,8 +103,10 @@ if st.button("بدء الاستخراج والتوليد 🚀"):
                             الشروط: قصيرة جداً (4 أسطر كحد أقصى)، مهنية، بدون حماس مبالغ فيه أو كلمات سبام.
                             """
                             try:
-                                model = genai.GenerativeModel('gemini-1.5-pro')
-                                ai_response = model.generate_content(prompt)
+                                ai_response = client.models.generate_content(
+                                    model='gemini-2.5-flash',
+                                    contents=prompt,
+                                )
                                 st.text_area("الرسالة الجاهزة للإرسال:", ai_response.text, height=150)
                             except Exception as e:
                                 st.error(f"حدث خطأ أثناء توليد الرسالة بالذكاء الاصطناعي: {e}")
@@ -113,4 +115,4 @@ if st.button("بدء الاستخراج والتوليد 🚀"):
                             
             except Exception as e:
                 st.error(f"حدث خطأ أثناء فحص الموقع: {e}")
-                    
+                        
