@@ -10,7 +10,7 @@ st.set_page_config(page_title="EU Lead Generator AI", page_icon="🎯", layout="
 st.title("🎯 نظام استخراج الإيميلات والتخصيص الذكي (للسوق الأوروبي)")
 st.write("أدخل رابط موقع الشركة المستهدفة، وسيقوم النظام بفحص الصفحة، استخراج البريد الرسمي، وصياغة رسالة احترافية عبر Gemini.")
 
-# إعداد مفتاح Gemini باستخدام المكتبة الحديثة
+# إعداد مفتاح Gemini
 client = None
 try:
     if "GEMINI_API_KEY" in st.secrets:
@@ -43,24 +43,25 @@ if st.button("بدء الاستخراج والتوليد 🚀"):
                 else:
                     soup = BeautifulSoup(response.text, 'html.parser')
                     
-                    # البحث عن صفحة الاتصال أو من نحن أو Imprint
-                    contact_url = None
+                    # البحث عن صفحة الاتصال أو من نحن أو Impressum
+                    contact_urls = []
                     for a in soup.find_all('a', href=True):
                         text = a.get_text().lower()
-                        if any(term in text for term in ['contact', 'imprint', 'about', 'impressum', 'kontakt']):
+                        href = a['href'].lower()
+                        if any(term in text or term in href for term in ['contact', 'imprint', 'impressum', 'about', 'kontakt']):
                             link = a['href']
                             if link.startswith('http'):
-                                contact_url = link
+                                contact_urls.append(link)
                             elif link.startswith('/'):
-                                contact_url = website_url.rstrip('/') + link
-                            break
+                                contact_urls.append(website_url.rstrip('/') + link)
                     
                     full_text = response.text
-                    if contact_url:
+                    # زيارة أول رابطين للتواصل للتأكد من جمع البيانات
+                    for c_url in list(set(contact_urls))[:2]:
                         try:
-                            contact_resp = requests.get(contact_url, headers=headers, timeout=10)
+                            contact_resp = requests.get(c_url, headers=headers, timeout=10)
                             if contact_resp.status_code == 200:
-                                full_text += contact_resp.text
+                                full_text += " " + contact_resp.text
                         except:
                             pass
                     
@@ -68,7 +69,7 @@ if st.button("بدء الاستخراج والتوليد 🚀"):
                     email_pattern = r'[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+'
                     raw_emails = set(re.findall(email_pattern, full_text))
                     
-                    free_domains = ['gmail.com', 'yahoo.com', 'hotmail.com', 'outlook.com', 'icloud.com', 'example.com']
+                    free_domains = ['gmail.com', 'yahoo.com', 'hotmail.com', 'outlook.com', 'icloud.com', 'example.com', 'wixpress.com']
                     clean_emails = []
                     
                     for email in raw_emails:
@@ -91,7 +92,7 @@ if st.button("بدء الاستخراج والتوليد 🚀"):
                             for em in clean_emails:
                                 st.code(em)
                         else:
-                            st.info("لم يتم العثور على بريد رسمي مباشر، يُرجى مراجعة الموقع يدوياً أو تجربة صفحة 'Imprint' (إلزامية في ألمانيا وأوروبا).")
+                            st.info("لم يتم العثور على بريد رسمي مباشر، يُرجى مراجعة صفحة 'Impressum' في الموقع يدوياً.")
                             
                     with col2:
                         st.subheader("🤖 مسودة الرسالة المقترحة (Gemini AI):")
@@ -103,11 +104,12 @@ if st.button("بدء الاستخراج والتوليد 🚀"):
                             الشروط: قصيرة جداً (4 أسطر كحد أقصى)، مهنية، بدون حماس مبالغ فيه أو كلمات سبام.
                             """
                             try:
+                                # استخدام اسم الموديل المستقر المعتمد
                                 ai_response = client.models.generate_content(
-                                    model='gemini-2.5-flash',
+                                    model='gemini-3.5-flash-lite',
                                     contents=prompt,
                                 )
-                                st.text_area("الرسالة الجاهزة للإرسال:", ai_response.text, height=150)
+                                st.text_area("الرسالة الجاهزة للإرسال:", ai_response.text, height=180)
                             except Exception as e:
                                 st.error(f"حدث خطأ أثناء توليد الرسالة بالذكاء الاصطناعي: {e}")
                         else:
@@ -115,4 +117,3 @@ if st.button("بدء الاستخراج والتوليد 🚀"):
                             
             except Exception as e:
                 st.error(f"حدث خطأ أثناء فحص الموقع: {e}")
-                        
